@@ -8,7 +8,7 @@ import pytest
 from src.indicators import calculate_sma
 
 
-# ── Fixtures ───────────────────────────────────────────────────────────────────
+# Fixtures
 
 @pytest.fixture
 def prices_10() -> list[float]:
@@ -18,11 +18,11 @@ def prices_10() -> list[float]:
 
 @pytest.fixture
 def constant_prices() -> list[float]:
-    """All prices identical — SMA must equal that constant."""
+    """All prices identical - SMA must equal that constant."""
     return [42.0] * 10
 
 
-# ── calculate_sma ──────────────────────────────────────────────────────────────
+# Tests for calculate_sma
 
 class TestCalculateSma:
 
@@ -55,7 +55,7 @@ class TestCalculateSma:
         """
         Assert that the first non-None SMA value equals the arithmetic mean
         of the first `window` prices.
-        prices_10[:3] = [1, 2, 3] → mean = 2.0
+        prices_10[:3] = [1, 2, 3] -> mean = 2.0
         """
         result = calculate_sma(prices_10, window=3)
         assert result[2] == pytest.approx(2.0)
@@ -63,7 +63,7 @@ class TestCalculateSma:
     def test_last_value_is_correct(self, prices_10):
         """
         Assert that the last SMA value equals the mean of the last `window`
-        prices: [8, 9, 10] → mean = 9.0.
+        prices: [8, 9, 10] -> mean = 9.0.
         """
         result = calculate_sma(prices_10, window=3)
         assert result[-1] == pytest.approx(9.0)

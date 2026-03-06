@@ -1,5 +1,7 @@
 """
-tests/test_strategy.py
+tests/# Helpers
+
+def make_records(closes: list[float]) -> list[dict]:t_strategy.py
 ----------------------
 Unit tests for strategy.py (SMAStrategy.__init__, generate_signals).
 """
@@ -8,14 +10,14 @@ import pytest
 from src.strategy import SMAStrategy
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+# Helpers
 
 def _make_records(prices: list[float]) -> list[dict]:
     """Convert a plain list of prices into the OHLCV-dict format expected by generate_signals."""
     return [{"Date": f"2024-01-{i+1:02d}", "Close": p} for i, p in enumerate(prices)]
 
 
-# ── SMAStrategy.__init__ ───────────────────────────────────────────────────────
+# Tests for SMAStrategy.__init__
 
 class TestSMAStrategyInit:
 
@@ -44,7 +46,7 @@ class TestSMAStrategyInit:
         assert s.long_window == 30
 
 
-# ── SMAStrategy.generate_signals ───────────────────────────────────────────────
+# Tests for SMAStrategy.generate_signals
 
 class TestGenerateSignals:
 
@@ -99,7 +101,7 @@ class TestGenerateSignals:
         """
         # Phase 1: slow declining ramp so short SMA < long SMA
         # Phase 2: sudden sustained spike so short SMA crosses above long SMA
-        declining = [100.0 - i * 0.5 for i in range(50)]  # 100 → 75.5
+        declining = [100.0 - i * 0.5 for i in range(50)]  # 100 -> 75.5
         spike = [5_000.0] * 10
         records = _make_records(declining + spike)
         s = SMAStrategy(short_window=5, long_window=20)
@@ -114,7 +116,7 @@ class TestGenerateSignals:
         """
         # Phase 1: slow rising ramp so short SMA > long SMA
         # Phase 2: sudden sustained crash so short SMA crosses below long SMA
-        rising = [100.0 + i * 0.5 for i in range(50)]   # 100 → 124.5
+        rising = [100.0 + i * 0.5 for i in range(50)]   # 100 -> 124.5
         crash = [1.0] * 10
         records = _make_records(rising + crash)
         s = SMAStrategy(short_window=5, long_window=20)

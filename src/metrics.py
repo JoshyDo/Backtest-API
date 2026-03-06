@@ -1,6 +1,4 @@
 """
-metrics.py
-----------
 Calculation of performance metrics for backtest evaluation.
 """
 

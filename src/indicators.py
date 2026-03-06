@@ -1,6 +1,4 @@
 """
-indicators.py
--------------
 Technical indicators for the backtesting engine.
 """
 

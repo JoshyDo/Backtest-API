@@ -1,6 +1,4 @@
 """
-data_loader.py
---------------
 Responsible for downloading and reading historical price data.
 """
 

@@ -1,65 +1,136 @@
 """
-main.py
--------
-Entry point of the backtesting engine.
-Orchestrates the full pipeline from data download to performance evaluation.
+CLI entry point that orchestrates the full backtesting pipeline:
+  1. Download/load historical data via yfinance
+  2. Generate SMA crossover trading signals
+  3. Execute virtual portfolio with commission tracking
+  4. Calculate performance metrics and benchmarks
+  5. Optionally optimize parameters via grid-search
+
+Usage:
+    python main.py                          # Run single backtest
+    python main.py                          # Run grid-search optimization (see GRID_SEARCH_ENABLED)
+
+Configuration:
+    Edit the constants below to customize backtest parameters.
 """
 
 import logging
+from typing import Optional
 
 from src.data_loader import download_historical_data, load_csv_data
 from src.metrics import calculate_max_drawdown, calculate_sharpe_ratio
 from src.portfolio import Portfolio
 from src.strategy import SMAStrategy
+from src.optimizer import run_grid_search
 
-# ── Configuration ──────────────────────────────────────────────────────────────
-TICKER = "AAPL"
-START_DATE = "2021-01-01"
-END_DATE = "2026-01-01"
-CSV_PATH = f"data/{TICKER}.csv"
+# ============================================================================
+# CONFIGURATION: Modify these settings to customize the backtest
+# ============================================================================
 
-INITIAL_CASH = 10_000.0  # Starting capital in USD
-COMMISSION = 0.001  # Transaction fee: 0.1 %
-SHORT_WINDOW = 20  # Short-term SMA period (days)
-LONG_WINDOW = 50  # Long-term SMA period (days)
-# ───────────────────────────────────────────────────────────────────────────────
+# Data & Backtest Parameters
+TICKER = "DAX"                      # Stock ticker symbol (e.g., "AAPL", "^GSPC", "BAS.DE")
+START_DATE = "2021-01-01"           # Backtest start date (YYYY-MM-DD, inclusive)
+END_DATE = "2027-01-01"             # Backtest end date (YYYY-MM-DD, exclusive)
+CSV_PATH = f"data/{TICKER}.csv"     # Path to cache downloaded data
+
+INITIAL_CASH = 10_000.0             # Starting capital (USD)
+COMMISSION = 0.001                  # Transaction fee as decimal (0.1% = 0.001)
+SHORT_WINDOW = 20                   # Fast SMA period (days)
+LONG_WINDOW = 50                    # Slow SMA period (days)
+
+# Grid Search Optimization Parameters
+# Set GRID_SEARCH_ENABLED = True to find optimal SMA parameters
+# Otherwise, runs single backtest with SHORT_WINDOW & LONG_WINDOW above
+GRID_SEARCH_ENABLED = True
+
+# Parameter ranges for grid search (exclusive upper bounds)
+GRID_SEARCH_FAST_MIN = 5            # Short SMA: minimum days
+GRID_SEARCH_FAST_MAX = 100           # Short SMA: maximum days (exclusive)
+GRID_SEARCH_SLOW_MIN = 15           # Long SMA: minimum days
+GRID_SEARCH_SLOW_MAX = 500          # Long SMA: maximum days (exclusive)
+
+# ============================================================================
+# END CONFIGURATION
+# ============================================================================
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 log = logging.getLogger(__name__)
 
 
-def main() -> None:
-    # 1. Download & load data
-    log.info("Downloading %s data (%s to %s)...", TICKER, START_DATE, END_DATE)
-    download_historical_data(TICKER, START_DATE, END_DATE, CSV_PATH)
-
-    records = load_csv_data(CSV_PATH)
-    log.info("%d records loaded.", len(records))
+def run_backtest(
+    data: Optional[list[dict]] = None,
+    ticker: str = TICKER,
+    start_date: str = START_DATE,
+    end_date: str = END_DATE,
+    csv_path: str = CSV_PATH,
+    initial_cash: float = INITIAL_CASH,
+    commission: float = COMMISSION,
+    short_window: int = SHORT_WINDOW,
+    long_window: int = LONG_WINDOW,
+    print_results: bool = True,
+) -> list[float]:
+    """
+    Executes a complete backtesting pipeline and returns portfolio value history.
+    
+    This function:
+      1. Downloads/loads historical OHLCV data
+      2. Generates SMA crossover trading signals
+      3. Simulates portfolio execution with commission tracking
+      4. Calculates performance metrics (Sharpe, max drawdown, etc.)
+      5. Prints formatted results (optional)
+    
+    Args:
+        data: Pre-loaded OHLCV records (if None, downloads from ticker/date range)
+        ticker: Stock ticker symbol (e.g., "AAPL", "^GSPC")
+        start_date: Backtest start date "YYYY-MM-DD"
+        end_date: Backtest end date "YYYY-MM-DD"
+        csv_path: Path to save/load CSV data
+        initial_cash: Starting capital in USD
+        commission: Transaction fee as decimal (0.001 = 0.1%)
+        short_window: Fast SMA period in days
+        long_window: Slow SMA period in days
+        print_results: If True, prints formatted performance summary
+    
+    Returns:
+        list[float]: Portfolio values at each trading day (for metric calculations)
+    
+    Raises:
+        ValueError: If data validation fails or parameters are invalid
+        FileNotFoundError: If CSV file cannot be loaded and ticker data unavailable
+    """
+    # 1. Download & load data (only if not provided)
+    if data is None:
+        log.info("Downloading %s data (%s to %s)...", ticker, start_date, end_date)
+        download_historical_data(ticker, start_date, end_date, csv_path)
+        records = load_csv_data(csv_path)
+        log.info("%d records loaded.", len(records))
+    else:
+        records = data
 
     # 2. Generate trading signals
-    strategy = SMAStrategy(short_window=SHORT_WINDOW, long_window=LONG_WINDOW)
+    strategy = SMAStrategy(short_window=short_window, long_window=long_window)
     signals = strategy.generate_signals(records)
-    log.info(
+    log.debug(
         "%d signals generated (SMA %d/%d).",
-        len(signals), SHORT_WINDOW, LONG_WINDOW,
+        len(signals), short_window, long_window,
     )
 
     # 3. Run backtest
-    portfolio = Portfolio(initial_cash=INITIAL_CASH, commission=COMMISSION)
+    portfolio = Portfolio(initial_cash=initial_cash, commission=commission)
     portfolio_values: list[float] = []
 
     for signal in signals:
         if signal["Signal"] == "BUY":
             quantity = int(portfolio.cash // (signal["Close"] * (1 + portfolio.commission)))
             if quantity > 0:
-                log.info(
+                log.debug(
                     "BUY  %s | Price: %.2f | Shares: %d",
                     signal["Date"], signal["Close"], quantity,
                 )
                 portfolio.buy(signal["Date"], signal["Close"], quantity)
 
         elif signal["Signal"] == "SELL" and portfolio.shares > 0:
-            log.info(
+            log.debug(
                 "SELL %s | Price: %.2f | Shares: %d",
                 signal["Date"], signal["Close"], int(portfolio.shares),
             )
@@ -69,30 +140,152 @@ def main() -> None:
 
     # 4. Performance metrics
     if not portfolio_values:
-        log.warning("No portfolio values — nothing to report.")
-        return
+        log.warning("No portfolio values - nothing to report.")
+        return portfolio_values
 
     mdd = calculate_max_drawdown(portfolio_values)
     sharpe = calculate_sharpe_ratio(portfolio_values)
 
-    # Buy-and-Hold comparison
-    first_price = records[0]["Close"]
-    last_price = records[-1]["Close"]
-    buy_hold_end = (INITIAL_CASH / first_price) * last_price
+    # Only print if requested (default True for CLI, False for optimization)
+    if print_results:
+        # Buy-and-Hold comparison
+        first_price = records[0]["Close"]
+        last_price = records[-1]["Close"]
+        buy_hold_end = (initial_cash / first_price) * last_price
 
-    strategy_return = (portfolio_values[-1] - INITIAL_CASH) / INITIAL_CASH
-    buyhold_return = (buy_hold_end - INITIAL_CASH) / INITIAL_CASH
+        strategy_return = (portfolio_values[-1] - initial_cash) / initial_cash
+        buyhold_return = (buy_hold_end - initial_cash) / initial_cash
+        
+        # Calculate annualized return (assuming ~252 trading days per year, 5 years of data)
+        num_years = (len(records) / 252)
+        annualized_return = ((portfolio_values[-1] / initial_cash) ** (1 / num_years)) - 1
 
-    print("\n── Backtest Results ───────────────────────────")
-    print(f"  Initial Capital    : $ {INITIAL_CASH:>10,.2f}")
-    print(f"  Final Value (SMA)  : $ {portfolio_values[-1]:>10,.2f}")
-    print(f"  Final Value (B&H)  : $ {buy_hold_end:>10,.2f}")
-    print(f"  Return  (SMA)      :   {strategy_return:>10.2%}")
-    print(f"  Return  (B&H)      :   {buyhold_return:>10.2%}")
-    print(f"  Maximum Drawdown   :   {mdd:>10.2%}")
-    print(f"  Sharpe Ratio       :   {sharpe:>10.4f}")
-    print("───────────────────────────────────────────────")
+        print("\nBacktest Results")
+        print("=" * 50)
+        print(f"  SMA Parameters     : ({short_window:>2d}, {long_window:>2d})")
+        print(f"  Initial Capital    : $ {initial_cash:>10,.2f}")
+        print(f"  Final Value (SMA)  : $ {portfolio_values[-1]:>10,.2f}")
+        print(f"  Final Value (B&H)  : $ {buy_hold_end:>10,.2f}")
+        print(f"  Return  (SMA)      :   {strategy_return:>10.2%}")
+        print(f"  Return  (B&H)      :   {buyhold_return:>10.2%}")
+        print(f"  Return per Year    :   {annualized_return:>10.2%}")
+        print(f"  Maximum Drawdown   :   {mdd:>10.2%}")
+        print(f"  Sharpe Ratio       :   {sharpe:>10.4f}")
+        print("=" * 50)
+    
+    return portfolio_values
 
 
 if __name__ == "__main__":
-    main()
+    # Single backtest with fixed parameters
+    if not GRID_SEARCH_ENABLED:
+        run_backtest()
+    
+    # Grid-search optimization to find best SMA parameters
+    else:
+        print("\n" + "="*70)
+        print("GRID-SEARCH OPTIMIZATION - Finding optimal SMA parameters")
+        print("="*70 + "\n")
+        
+        # Suppress detailed logging during optimization
+        logging.getLogger().setLevel(logging.WARNING)
+        logging.getLogger("src.data_loader").setLevel(logging.WARNING)
+        logging.getLogger("src.strategy").setLevel(logging.WARNING)
+        logging.getLogger("src.portfolio").setLevel(logging.WARNING)
+        
+        # Load data once
+        log.warning("Loading data for optimization...")
+        download_historical_data(TICKER, START_DATE, END_DATE, CSV_PATH)
+        data = load_csv_data(CSV_PATH)
+        log.warning(f"{len(data)} records loaded")
+        
+        # Calculate grid size
+        fast_count = GRID_SEARCH_FAST_MAX - GRID_SEARCH_FAST_MIN
+        slow_count = GRID_SEARCH_SLOW_MAX - GRID_SEARCH_SLOW_MIN
+        total_combinations = fast_count * slow_count
+        
+        print("\n" + "="*70)
+        print("HYBRID OPTIMIZATION STRATEGY")
+        print("="*70)
+        print("\nPass 1: Quick Exploration (with early stopping)")
+        print(f"  Range: SMA {GRID_SEARCH_FAST_MIN}-{GRID_SEARCH_FAST_MAX-1} x {GRID_SEARCH_SLOW_MIN}-{GRID_SEARCH_SLOW_MAX-1}")
+        print(f"  Total combinations: {fast_count} x {slow_count} = {total_combinations}\n")
+        
+        # Pass 1: Quick exploration with early stopping (finds approximate optimum)
+        quick_result = run_grid_search(
+            data=data,
+            fast_range=range(GRID_SEARCH_FAST_MIN, GRID_SEARCH_FAST_MAX),
+            slow_range=range(GRID_SEARCH_SLOW_MIN, GRID_SEARCH_SLOW_MAX),
+            backtest_func=run_backtest,
+            early_stopping=True,
+        )
+        
+        print(f"\n✓ Pass 1 Complete: SMA({quick_result['short_window']}, {quick_result['long_window']}) → Sharpe: {quick_result['sharpe_ratio']:.4f}")
+        
+        # Pass 2: Fine-grained refinement around best from Pass 1 (exhaustive)
+        print("\n" + "="*70)
+        print("Pass 2: Fine-Grained Refinement (exhaustive search)")
+        
+        short = quick_result['short_window']
+        long = quick_result['long_window']
+        
+        # Define refined search ranges (±10 for short window, ±20 for long window)
+        fine_fast_min = max(GRID_SEARCH_FAST_MIN, short - 10)
+        fine_fast_max = min(GRID_SEARCH_FAST_MAX, short + 11)
+        fine_slow_min = max(GRID_SEARCH_SLOW_MIN, long - 20)
+        fine_slow_max = min(GRID_SEARCH_SLOW_MAX, long + 21)
+        
+        fine_fast_count = fine_fast_max - fine_fast_min
+        fine_slow_count = fine_slow_max - fine_slow_min
+        fine_total_combinations = fine_fast_count * fine_slow_count
+        
+        print(f"  Searching around: SMA({short}, {long})")
+        print(f"  Range: SMA {fine_fast_min}-{fine_fast_max-1} x {fine_slow_min}-{fine_slow_max-1}")
+        print(f"  Total combinations: {fine_fast_count} x {fine_slow_count} = {fine_total_combinations}\n")
+        
+        best_params = run_grid_search(
+            data=data,
+            fast_range=range(fine_fast_min, fine_fast_max),
+            slow_range=range(fine_slow_min, fine_slow_max),
+            backtest_func=run_backtest,
+            early_stopping=False,  # Exhaustive search in refined region
+        )
+        
+        # Display final results with comparison
+        print("\n" + "="*70)
+        print("FINAL OPTIMIZATION RESULTS")
+        print("="*70)
+        
+        print(f"\nPass 1 (Quick):      SMA({quick_result['short_window']:>2d}, {quick_result['long_window']:>3d}) → Sharpe: {quick_result['sharpe_ratio']:.4f}")
+        print(f"Pass 2 (Refined):    SMA({best_params['short_window']:>2d}, {best_params['long_window']:>3d}) → Sharpe: {best_params['sharpe_ratio']:.4f}")
+        
+        # Calculate improvement
+        improvement = best_params['sharpe_ratio'] - quick_result['sharpe_ratio']
+        if quick_result['sharpe_ratio'] != 0:
+            improvement_pct = (improvement / abs(quick_result['sharpe_ratio']) * 100)
+        else:
+            improvement_pct = 0
+        
+        if improvement > 0.0001:
+            print(f"Improvement:         +{improvement:.4f} ({improvement_pct:+.2f}%)")
+        elif improvement < -0.0001:
+            print(f"Change:              {improvement:.4f} ({improvement_pct:+.2f}%)")
+        else:
+            print(f"No change")
+        
+        print(f"\n{'Optimal Parameters:':.<40}")
+        print(f"  Short Window (SMA): {best_params['short_window']:>2d} days")
+        print(f"  Long Window (SMA):  {best_params['long_window']:>3d} days")
+        print(f"\n  Sharpe Ratio:       {best_params['sharpe_ratio']:>8.4f}")
+        print(f"  Final Value:        ${best_params['final_value']:>10,.2f}")
+        print(f"  Max Drawdown:       {best_params['max_drawdown']:>8.2%}")
+        print("="*70 + "\n")
+        
+        # Run final backtest with optimized parameters
+        print("Running final backtest with optimized parameters...\n")
+        run_backtest(
+            data=data,
+            short_window=best_params['short_window'],
+            long_window=best_params['long_window'],
+            print_results=True,
+        )

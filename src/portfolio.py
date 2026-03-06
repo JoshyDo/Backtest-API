@@ -1,6 +1,4 @@
 """
-portfolio.py
-------------
 Manages the virtual portfolio (cash, positions, transaction costs).
 """
 

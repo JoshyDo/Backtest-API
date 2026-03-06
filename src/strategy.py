@@ -1,6 +1,4 @@
 """
-strategy.py
------------
 Trading signal generation using SMA crossover logic.
 """
 

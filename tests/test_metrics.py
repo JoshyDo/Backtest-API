@@ -8,7 +8,7 @@ import pytest
 from src.metrics import calculate_max_drawdown, calculate_sharpe_ratio
 
 
-# ── Fixtures ───────────────────────────────────────────────────────────────────
+# Fixtures
 
 @pytest.fixture
 def rising_values() -> list[float]:
@@ -36,7 +36,7 @@ def mixed_values() -> list[float]:
     Returns a portfolio value series with a clear peak followed by a trough,
     then a partial recovery.
     Used to test that MDD correctly identifies the deepest peak-to-trough loss.
-    Example shape: rise → peak → drop → small recovery.
+    Example shape: rise -> peak -> drop -> small recovery.
     """
     # Peak is 10_000.0 at index 3, trough is 6_000.0 at index 5
     # MDD = (6_000 - 10_000) / 10_000 = -0.40
@@ -47,13 +47,13 @@ def mixed_values() -> list[float]:
 def flat_values() -> list[float]:
     """
     Returns a portfolio value series where every value is identical.
-    Used to test the edge case where std deviation is 0 (Sharpe → 0.0)
+    Used to test the edge case where std deviation is 0 (Sharpe -> 0.0)
     and drawdown is 0.0.
     """
     return [5_000.0] * 10
 
 
-# ── calculate_max_drawdown ─────────────────────────────────────────────────────
+# Tests for calculate_max_drawdown
 
 class TestCalculateMaxDrawdown:
 
@@ -104,7 +104,7 @@ class TestCalculateMaxDrawdown:
         assert calculate_max_drawdown([1.0]) == 0.0
 
 
-# ── calculate_sharpe_ratio ────────────────────────────────────────────────────
+# Tests for calculate_sharpe_ratio
 
 class TestCalculateSharpeRatio:
 
@@ -157,5 +157,5 @@ class TestCalculateSharpeRatio:
         """
         sharpe_252 = calculate_sharpe_ratio(mixed_values, 0, 252)
         sharpe_280 = calculate_sharpe_ratio(mixed_values, 0, 280)
-        # Higher periods_per_year → larger sqrt() multiplier → larger absolute Sharpe
+        # Higher periods_per_year -> larger sqrt() multiplier -> larger absolute Sharpe
         assert abs(sharpe_280) > abs(sharpe_252)

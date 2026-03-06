@@ -9,7 +9,7 @@ import pytest
 from src.portfolio import Portfolio
 
 
-# ── Fixtures ───────────────────────────────────────────────────────────────────
+# Fixtures
 
 @pytest.fixture
 def default_portfolio() -> Portfolio:
@@ -40,7 +40,7 @@ def low_cash_portfolio() -> Portfolio:
     return Portfolio(initial_cash=1.00)
 
 
-# ── Portfolio.buy ──────────────────────────────────────────────────────────────
+# Tests for Portfolio.buy
 
 class TestBuy:
 
@@ -102,7 +102,7 @@ class TestBuy:
             default_portfolio.buy(date="2024-01-01", price=10, quantity=-100)
 
 
-# ── Portfolio.sell ─────────────────────────────────────────────────────────────
+# Tests for Portfolio.sell
 
 class TestSell:
 
@@ -167,7 +167,7 @@ class TestSell:
             default_portfolio.sell(date="2024-01-01", price=100.0, quantity=-5)
 
 
-# ── Portfolio.get_portfolio_value ──────────────────────────────────────────────
+# Tests for Portfolio.get_portfolio_value
 
 class TestGetPortfolioValue:
 
