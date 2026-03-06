@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+.pytest_cache/
 *.py[cod]
 *.egg-info/
 dist/
@@ -10,7 +11,7 @@ build/
 venv/
 
 # Generated data
-data/*.csv
+data/
 
 # IDE
 .vscode/
@@ -22,4 +23,3 @@ data/*.csv
 # OS
 .DS_Store
 Thumbs.db
-data/AAPL.csv
