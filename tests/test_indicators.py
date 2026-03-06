@@ -5,7 +5,7 @@ Unit tests for indicators.py (calculate_sma).
 """
 
 import pytest
-from indicators import calculate_sma
+from src.indicators import calculate_sma
 
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ Portfolio.get_portfolio_value).
 """
 
 import pytest
-from portfolio import Portfolio
+from src.portfolio import Portfolio
 
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────

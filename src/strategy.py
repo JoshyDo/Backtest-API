@@ -4,7 +4,7 @@ strategy.py
 Trading signal generation using SMA crossover logic.
 """
 
-from indicators import calculate_sma
+from .indicators import calculate_sma
 
 
 class SMAStrategy:

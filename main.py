@@ -7,10 +7,10 @@ Orchestrates the full pipeline from data download to performance evaluation.
 
 import logging
 
-from data_loader import download_historical_data, load_csv_data
-from metrics import calculate_max_drawdown, calculate_sharpe_ratio
-from portfolio import Portfolio
-from strategy import SMAStrategy
+from src.data_loader import download_historical_data, load_csv_data
+from src.metrics import calculate_max_drawdown, calculate_sharpe_ratio
+from src.portfolio import Portfolio
+from src.strategy import SMAStrategy
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 TICKER = "AAPL"

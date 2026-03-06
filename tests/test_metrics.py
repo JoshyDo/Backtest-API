@@ -5,7 +5,7 @@ Unit tests for metrics.py (calculate_max_drawdown, calculate_sharpe_ratio).
 """
 
 import pytest
-from metrics import calculate_max_drawdown, calculate_sharpe_ratio
+from src.metrics import calculate_max_drawdown, calculate_sharpe_ratio
 
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────

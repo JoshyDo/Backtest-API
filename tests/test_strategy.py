@@ -5,7 +5,7 @@ Unit tests for strategy.py (SMAStrategy.__init__, generate_signals).
 """
 
 import pytest
-from strategy import SMAStrategy
+from src.strategy import SMAStrategy
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
