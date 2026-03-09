@@ -22,14 +22,15 @@ from src.metrics import calculate_max_drawdown, calculate_sharpe_ratio
 from src.portfolio import Portfolio
 from src.strategy import SMAStrategy
 from src.optimizer import run_grid_search
+from src.cpp_optimizer import is_cpp_available
 
 # ============================================================================
 # CONFIGURATION: Modify these settings to customize the backtest
 # ============================================================================
 
 # Data & Backtest Parameters
-TICKER = "DAX"                      # Stock ticker symbol (e.g., "AAPL", "^GSPC", "BAS.DE")
-START_DATE = "2021-01-01"           # Backtest start date (YYYY-MM-DD, inclusive)
+TICKER = "NVDA"                      # Stock ticker symbol (e.g., "AAPL", "^GSPC", "BAS.DE")
+START_DATE = "2000-01-01"           # Backtest start date (YYYY-MM-DD, inclusive)
 END_DATE = "2027-01-01"             # Backtest end date (YYYY-MM-DD, exclusive)
 CSV_PATH = f"data/{TICKER}.csv"     # Path to cache downloaded data
 
@@ -45,7 +46,7 @@ GRID_SEARCH_ENABLED = True
 
 # Parameter ranges for grid search (exclusive upper bounds)
 GRID_SEARCH_FAST_MIN = 5            # Short SMA: minimum days
-GRID_SEARCH_FAST_MAX = 100           # Short SMA: maximum days (exclusive)
+GRID_SEARCH_FAST_MAX = 100          # Short SMA: maximum days (exclusive)
 GRID_SEARCH_SLOW_MIN = 15           # Long SMA: minimum days
 GRID_SEARCH_SLOW_MAX = 500          # Long SMA: maximum days (exclusive)
 
@@ -204,88 +205,64 @@ if __name__ == "__main__":
         slow_count = GRID_SEARCH_SLOW_MAX - GRID_SEARCH_SLOW_MIN
         total_combinations = fast_count * slow_count
         
+        # === EXHAUSTIVE: Full grid search ===
         print("\n" + "="*70)
-        print("HYBRID OPTIMIZATION STRATEGY")
+        print("EXHAUSTIVE GRID-SEARCH OPTIMIZATION")
         print("="*70)
-        print("\nPass 1: Quick Exploration (with early stopping)")
+        if is_cpp_available():
+            print("Using C++ Multithreaded Optimizer (10-50x faster)")
+        else:
+            print("Using Pure Python Optimizer (C++ not available)")
+        print(f"\nTesting all parameter combinations")
         print(f"  Range: SMA {GRID_SEARCH_FAST_MIN}-{GRID_SEARCH_FAST_MAX-1} x {GRID_SEARCH_SLOW_MIN}-{GRID_SEARCH_SLOW_MAX-1}")
         print(f"  Total combinations: {fast_count} x {slow_count} = {total_combinations}\n")
         
-        # Pass 1: Quick exploration with early stopping (finds approximate optimum)
-        quick_result = run_grid_search(
+        best_params = run_grid_search(
             data=data,
             fast_range=range(GRID_SEARCH_FAST_MIN, GRID_SEARCH_FAST_MAX),
             slow_range=range(GRID_SEARCH_SLOW_MIN, GRID_SEARCH_SLOW_MAX),
             backtest_func=run_backtest,
-            early_stopping=True,
         )
         
-        print(f"\n✓ Pass 1 Complete: SMA({quick_result['short_window']}, {quick_result['long_window']}) → Sharpe: {quick_result['sharpe_ratio']:.4f}")
-        
-        # Pass 2: Fine-grained refinement around best from Pass 1 (exhaustive)
         print("\n" + "="*70)
-        print("Pass 2: Fine-Grained Refinement (exhaustive search)")
-        
-        short = quick_result['short_window']
-        long = quick_result['long_window']
-        
-        # Define refined search ranges (±10 for short window, ±20 for long window)
-        fine_fast_min = max(GRID_SEARCH_FAST_MIN, short - 10)
-        fine_fast_max = min(GRID_SEARCH_FAST_MAX, short + 11)
-        fine_slow_min = max(GRID_SEARCH_SLOW_MIN, long - 20)
-        fine_slow_max = min(GRID_SEARCH_SLOW_MAX, long + 21)
-        
-        fine_fast_count = fine_fast_max - fine_fast_min
-        fine_slow_count = fine_slow_max - fine_slow_min
-        fine_total_combinations = fine_fast_count * fine_slow_count
-        
-        print(f"  Searching around: SMA({short}, {long})")
-        print(f"  Range: SMA {fine_fast_min}-{fine_fast_max-1} x {fine_slow_min}-{fine_slow_max-1}")
-        print(f"  Total combinations: {fine_fast_count} x {fine_slow_count} = {fine_total_combinations}\n")
-        
-        best_params = run_grid_search(
-            data=data,
-            fast_range=range(fine_fast_min, fine_fast_max),
-            slow_range=range(fine_slow_min, fine_slow_max),
-            backtest_func=run_backtest,
-            early_stopping=False,  # Exhaustive search in refined region
-        )
-        
-        # Display final results with comparison
-        print("\n" + "="*70)
-        print("FINAL OPTIMIZATION RESULTS")
+        print("OPTIMIZATION RESULTS")
         print("="*70)
         
-        print(f"\nPass 1 (Quick):      SMA({quick_result['short_window']:>2d}, {quick_result['long_window']:>3d}) → Sharpe: {quick_result['sharpe_ratio']:.4f}")
-        print(f"Pass 2 (Refined):    SMA({best_params['short_window']:>2d}, {best_params['long_window']:>3d}) → Sharpe: {best_params['sharpe_ratio']:.4f}")
+        # Display both best Sharpe and best Returns
+        best_sharpe = best_params['best_sharpe']
+        best_returns = best_params['best_returns']
         
-        # Calculate improvement
-        improvement = best_params['sharpe_ratio'] - quick_result['sharpe_ratio']
-        if quick_result['sharpe_ratio'] != 0:
-            improvement_pct = (improvement / abs(quick_result['sharpe_ratio']) * 100)
-        else:
-            improvement_pct = 0
+        print(f"\n{'BEST SHARPE RATIO:':.<40}")
+        print(f"  Short Window (SMA): {best_sharpe['short_window']:>2d} days")
+        print(f"  Long Window (SMA):  {best_sharpe['long_window']:>3d} days")
+        print(f"  Sharpe Ratio:       {best_sharpe['sharpe_ratio']:>8.4f}")
+        print(f"  Final Value:        ${best_sharpe['final_value']:>10,.2f}")
+        print(f"  Max Drawdown:       {best_sharpe['max_drawdown']:>8.2%}")
         
-        if improvement > 0.0001:
-            print(f"Improvement:         +{improvement:.4f} ({improvement_pct:+.2f}%)")
-        elif improvement < -0.0001:
-            print(f"Change:              {improvement:.4f} ({improvement_pct:+.2f}%)")
-        else:
-            print(f"No change")
-        
-        print(f"\n{'Optimal Parameters:':.<40}")
-        print(f"  Short Window (SMA): {best_params['short_window']:>2d} days")
-        print(f"  Long Window (SMA):  {best_params['long_window']:>3d} days")
-        print(f"\n  Sharpe Ratio:       {best_params['sharpe_ratio']:>8.4f}")
-        print(f"  Final Value:        ${best_params['final_value']:>10,.2f}")
-        print(f"  Max Drawdown:       {best_params['max_drawdown']:>8.2%}")
+        print(f"\n{'BEST RETURNS:':.<40}")
+        print(f"  Short Window (SMA): {best_returns['short_window']:>2d} days")
+        print(f"  Long Window (SMA):  {best_returns['long_window']:>3d} days")
+        print(f"  Sharpe Ratio:       {best_returns['sharpe_ratio']:>8.4f}")
+        print(f"  Final Value:        ${best_returns['final_value']:>10,.2f}")
+        print(f"  Max Drawdown:       {best_returns['max_drawdown']:>8.2%}")
         print("="*70 + "\n")
         
-        # Run final backtest with optimized parameters
-        print("Running final backtest with optimized parameters...\n")
+        # Run final backtest with best Sharpe parameters
+        print("Running final backtest with BEST SHARPE parameters...\n")
         run_backtest(
             data=data,
-            short_window=best_params['short_window'],
-            long_window=best_params['long_window'],
+            short_window=best_sharpe['short_window'],
+            long_window=best_sharpe['long_window'],
             print_results=True,
         )
+        
+        # Run final backtest with best Returns parameters (if different)
+        if (best_returns['short_window'] != best_sharpe['short_window'] or 
+            best_returns['long_window'] != best_sharpe['long_window']):
+            print("\n\nRunning final backtest with BEST RETURNS parameters...\n")
+            run_backtest(
+                data=data,
+                short_window=best_returns['short_window'],
+                long_window=best_returns['long_window'],
+                print_results=True,
+            )

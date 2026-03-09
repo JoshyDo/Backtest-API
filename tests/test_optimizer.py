@@ -6,6 +6,7 @@ Unit tests for optimizer.py (run_grid_search, progress utilities).
 
 import pytest
 from src.optimizer import run_grid_search, create_progress_bar, format_time, OptimizationResult
+from src.cpp_optimizer import is_cpp_available
 
 
 class TestProgressBar:
@@ -97,21 +98,31 @@ class TestRunGridSearch:
         ]
 
     def test_grid_search_returns_optimization_result(self):
-        """Assert that run_grid_search returns an OptimizationResult dict."""
+        """Assert that run_grid_search returns both best_sharpe and best_returns."""
         data = self._generate_dummy_data(300)
         result = run_grid_search(
             data=data,
             fast_range=range(5, 15),
             slow_range=range(20, 30),
             backtest_func=self._mock_backtest,
-            early_stopping=False  # Disable for testing
         )
         assert isinstance(result, dict)
-        assert "short_window" in result
-        assert "long_window" in result
-        assert "sharpe_ratio" in result
-        assert "final_value" in result
-        assert "max_drawdown" in result
+        assert "best_sharpe" in result
+        assert "best_returns" in result
+        
+        # Check best_sharpe structure
+        assert "short_window" in result["best_sharpe"]
+        assert "long_window" in result["best_sharpe"]
+        assert "sharpe_ratio" in result["best_sharpe"]
+        assert "final_value" in result["best_sharpe"]
+        assert "max_drawdown" in result["best_sharpe"]
+        
+        # Check best_returns structure
+        assert "short_window" in result["best_returns"]
+        assert "long_window" in result["best_returns"]
+        assert "sharpe_ratio" in result["best_returns"]
+        assert "final_value" in result["best_returns"]
+        assert "max_drawdown" in result["best_returns"]
 
     def test_grid_search_respects_constraints(self):
         """Assert that returned parameters satisfy short_window < long_window."""
@@ -121,9 +132,9 @@ class TestRunGridSearch:
             fast_range=range(5, 15),
             slow_range=range(20, 30),
             backtest_func=self._mock_backtest,
-            early_stopping=False
         )
-        assert result["short_window"] < result["long_window"]
+        assert result["best_sharpe"]["short_window"] < result["best_sharpe"]["long_window"]
+        assert result["best_returns"]["short_window"] < result["best_returns"]["long_window"]
 
     def test_grid_search_within_ranges(self):
         """Assert that returned parameters are within specified ranges."""
@@ -135,10 +146,12 @@ class TestRunGridSearch:
             fast_range=fast_range,
             slow_range=slow_range,
             backtest_func=self._mock_backtest,
-            early_stopping=False
+            
         )
-        assert result["short_window"] in fast_range
-        assert result["long_window"] in slow_range
+        assert result["best_sharpe"]["short_window"] in fast_range
+        assert result["best_sharpe"]["long_window"] in slow_range
+        assert result["best_returns"]["short_window"] in fast_range
+        assert result["best_returns"]["long_window"] in slow_range
 
     def test_grid_search_raises_on_insufficient_data(self):
         """Assert that ValueError is raised when data is too small."""
@@ -149,7 +162,7 @@ class TestRunGridSearch:
                 fast_range=range(5, 15),
                 slow_range=range(20, 100),  # Requires 100 records minimum
                 backtest_func=self._mock_backtest,
-                early_stopping=False
+                
             )
 
     def test_grid_search_raises_on_empty_ranges(self):
@@ -161,7 +174,7 @@ class TestRunGridSearch:
                 fast_range=range(0, 0),  # Empty range
                 slow_range=range(20, 30),
                 backtest_func=self._mock_backtest,
-                early_stopping=False
+                
             )
 
     def test_grid_search_single_parameter_set(self):
@@ -172,10 +185,12 @@ class TestRunGridSearch:
             fast_range=range(10, 11),  # Only one value: 10
             slow_range=range(30, 31),  # Only one value: 30
             backtest_func=self._mock_backtest,
-            early_stopping=False
+            
         )
-        assert result["short_window"] == 10
-        assert result["long_window"] == 30
+        assert result["best_sharpe"]["short_window"] == 10
+        assert result["best_sharpe"]["long_window"] == 30
+        assert result["best_returns"]["short_window"] == 10
+        assert result["best_returns"]["long_window"] == 30
 
     def test_grid_search_selects_best_sharpe(self):
         """Assert that grid search returns parameters with highest Sharpe ratio."""
@@ -194,13 +209,13 @@ class TestRunGridSearch:
         result = run_grid_search(
             data=data,
             fast_range=range(5, 15),
-            slow_range=range(25, 35),
+            slow_range=range(20, 40),  # Changed to include 30
             backtest_func=mock_backtest_varying,
-            early_stopping=False
+            
         )
-        # Should select the (10, 30) combination
-        assert result["short_window"] == 10
-        assert result["long_window"] == 30
+        # Should select the (10, 30) combination for best Sharpe
+        assert result["best_sharpe"]["short_window"] == 10
+        assert result["best_sharpe"]["long_window"] == 30
 
     def test_grid_search_metric_values_are_reasonable(self):
         """Assert that returned metrics have reasonable values."""
@@ -210,11 +225,155 @@ class TestRunGridSearch:
             fast_range=range(5, 15),
             slow_range=range(20, 30),
             backtest_func=self._mock_backtest,
-            early_stopping=False
+            
         )
         # Sharpe ratio should be a number
-        assert isinstance(result["sharpe_ratio"], (int, float))
+        assert isinstance(result["best_sharpe"]["sharpe_ratio"], (int, float))
+        assert isinstance(result["best_returns"]["sharpe_ratio"], (int, float))
         # Final value should be positive
-        assert result["final_value"] > 0
+        assert result["best_sharpe"]["final_value"] > 0
+        assert result["best_returns"]["final_value"] > 0
         # Max drawdown should be <= 0
-        assert result["max_drawdown"] <= 0
+        assert result["best_sharpe"]["max_drawdown"] <= 0
+        assert result["best_returns"]["max_drawdown"] <= 0
+
+
+class TestCppOptimizer:
+    """Tests for C++ optimizer integration."""
+
+    def test_cpp_available_check(self):
+        """Assert that is_cpp_available() returns a boolean."""
+        available = is_cpp_available()
+        assert isinstance(available, bool)
+
+    def test_cpp_grid_search_with_real_backtest(self):
+        """Assert that C++ optimizer is used when available with run_backtest."""
+        from main import run_backtest
+        
+        # Only test if C++ is available
+        if not is_cpp_available():
+            pytest.skip("C++ optimizer not available")
+        
+        # Generate dummy data
+        data = [
+            {
+                "Date": f"2025-01-{(i % 31) + 1:02d}",
+                "Close": 100 + i * 0.1,
+                "Open": 100 + i * 0.1,
+                "High": 102 + i * 0.1,
+                "Low": 98 + i * 0.1,
+                "Volume": 1000000
+            }
+            for i in range(300)
+        ]
+        
+        # Call grid search with the real run_backtest function
+        result = run_grid_search(
+            data=data,
+            fast_range=range(5, 15),
+            slow_range=range(20, 30),
+            backtest_func=run_backtest,
+        )
+        
+        # Verify result structure
+        assert isinstance(result, dict)
+        assert "best_sharpe" in result
+        assert "best_returns" in result
+        assert result["best_sharpe"]["short_window"] >= 5
+        assert result["best_sharpe"]["long_window"] >= 20
+
+
+class TestOptimizerEdgeCases:
+    """Tests for optimizer edge cases and error handling."""
+
+    def _generate_dummy_data(self, n_records=100):
+        """Generate dummy OHLCV data for testing."""
+        return [
+            {
+                "Date": f"2025-01-{(i % 31) + 1:02d}",
+                "Close": 100 + i * 0.5,
+                "Open": 100 + i * 0.5,
+                "High": 102 + i * 0.5,
+                "Low": 98 + i * 0.5,
+                "Volume": 1000000
+            }
+            for i in range(n_records)
+        ]
+
+    def _mock_backtest(self, data, short_window, long_window, print_results=False):
+        """Mock backtest function that returns dummy portfolio values."""
+        base_value = 10000
+        return [base_value * (1 + 0.001 * i) for i in range(len(data))]
+
+    def test_grid_search_with_very_large_range(self):
+        """Assert that grid search handles large parameter ranges."""
+        data = self._generate_dummy_data(500)
+        result = run_grid_search(
+            data=data,
+            fast_range=range(5, 50),  # 45 combinations
+            slow_range=range(50, 100),  # 50 combinations
+            backtest_func=self._mock_backtest,
+        )
+        assert result["best_sharpe"]["short_window"] < result["best_sharpe"]["long_window"]
+
+    def test_grid_search_with_minimal_ranges(self):
+        """Assert that grid search works with minimal parameter ranges."""
+        data = self._generate_dummy_data(100)
+        result = run_grid_search(
+            data=data,
+            fast_range=range(5, 6),  # Only 5
+            slow_range=range(10, 11),  # Only 10
+            backtest_func=self._mock_backtest,
+        )
+        assert result["best_sharpe"]["short_window"] == 5
+        assert result["best_sharpe"]["long_window"] == 10
+
+    def test_format_time_edge_cases(self):
+        """Assert that format_time handles edge cases correctly."""
+        # Test boundary values
+        assert format_time(0) == "00s"
+        assert format_time(1) == "01s"
+        assert format_time(59) == "59s"
+        assert format_time(60) == "1m 00s"
+        assert format_time(3599) == "59m 59s"
+        assert format_time(3600) == "1h 00m 00s"
+        assert format_time(86399) == "23h 59m 59s"
+
+    def test_create_progress_bar_edge_cases(self):
+        """Assert that create_progress_bar handles edge cases."""
+        # Test boundary values
+        bar_0 = create_progress_bar(0.0)
+        assert "0%" in bar_0
+        assert "----" in bar_0
+        
+        bar_1 = create_progress_bar(1.0)
+        assert "100%" in bar_1
+        assert "====" in bar_1
+        
+        bar_mid = create_progress_bar(0.5)
+        assert "50%" in bar_mid
+
+    def test_grid_search_all_parameters_valid(self):
+        """Assert that all returned parameters are valid."""
+        data = self._generate_dummy_data(300)
+        result = run_grid_search(
+            data=data,
+            fast_range=range(5, 20),
+            slow_range=range(30, 50),
+            backtest_func=self._mock_backtest,
+        )
+        
+        # Check both best_sharpe and best_returns have valid metrics
+        for key in ["best_sharpe", "best_returns"]:
+            res = result[key]
+            assert isinstance(res["short_window"], int)
+            assert isinstance(res["long_window"], int)
+            assert isinstance(res["sharpe_ratio"], (int, float))
+            assert isinstance(res["final_value"], (int, float))
+            assert isinstance(res["max_drawdown"], (int, float))
+            
+            # Check value ranges
+            assert res["short_window"] >= 5
+            assert res["long_window"] >= 30
+            assert res["final_value"] > 0
+            assert res["max_drawdown"] <= 0

@@ -13,11 +13,12 @@ Core Features:
 - Automatic data download via yfinance with CSV caching
 
 Production-Ready:
-- 77 comprehensive unit tests with **98% code coverage**
+- 100+ comprehensive unit tests with **93% code coverage**
 - Type hints throughout for code clarity
 - Clean architecture with modular design
 - Efficient algorithms (O(n) SMA calculation)
 - Detailed docstrings and error handling
+- C++ multithreaded optimizer for 10-50x performance boost
 
 ## Quick Start
 
@@ -72,11 +73,15 @@ GRID_SEARCH_SLOW_MIN = 15     # Long SMA range: 15-499 days
 GRID_SEARCH_SLOW_MAX = 500
 ```
 
-The system uses a **hybrid two-pass strategy**:
-1. **Pass 1** (Quick): Full grid with early stopping (~5% of combinations)
-2. **Pass 2** (Refined): Exhaustive search around best result (±10 short, ±20 long)
+The system will test all valid combinations exhaustively and display the best parameters found.
 
-Result: Best parameters in ~45 minutes vs 4+ hours for exhaustive search.
+**Performance**: With C++ optimizer enabled, tests 46,075 parameter combinations in seconds (10-50x faster than pure Python).
+
+**Dual Results**: Grid search now returns both:
+- **Best Sharpe Ratio**: Risk-adjusted returns optimization
+- **Best Returns**: Absolute return optimization
+
+This allows you to choose between conservative (lower volatility) or aggressive (maximum returns) strategies.
 
 
 ## Example Output
@@ -151,14 +156,25 @@ pytest tests/test_strategy.py -v
 pytest tests/test_metrics.py::TestCalculateSharpeRatio -v
 ```
 
-**Test Coverage**: 77 tests achieve **98% code coverage** across all modules.
+**Test Coverage**: 100+ tests achieve **93% code coverage** across all modules.
 
+Test files include:
+- `test_data_loader.py` - Data loading tests (100% coverage)
+- `test_indicators.py` - SMA calculation tests (100% coverage)
+- `test_metrics.py` - Performance metrics tests (100% coverage)
+- `test_optimizer.py` - Grid-search optimization tests (94% coverage)
+- `test_portfolio.py` - Portfolio simulation tests (100% coverage)
+- `test_strategy.py` - Signal generation tests (100% coverage)
+- `test_cpp_optimizer.py` - C++ optimizer integration tests (77% coverage)
+
+Module coverage breakdown:
 ```
 src/__init__.py       - 100%
+src/cpp_optimizer.py  -  77%  (ctypes binding layer, some paths hard to test)
 src/data_loader.py    - 100%
 src/indicators.py     - 100%
 src/metrics.py        - 100%
-src/optimizer.py      -  95%  (plot_heatmap not yet implemented)
+src/optimizer.py      -  94%  (C++ detection paths excluded from Python tests)
 src/portfolio.py      - 100%
 src/strategy.py       - 100%
 ```
@@ -192,29 +208,37 @@ Annual Return = (final_value / initial_value)^(1/years) - 1
 
 ## Optimization Algorithm
 
-The hybrid grid-search optimizer uses a two-pass strategy:
+The grid-search optimizer exhaustively tests all combinations of parameters to find the best Sharpe ratio:
 
-**Pass 1 - Quick Exploration** (with early stopping):
-- Tests full parameter grid with early stopping after 20 iterations without improvement
-- Reduces ~46,000 combinations to ~2,300 tested (5% coverage)
-- Identifies approximate optimum in ~30 minutes
-- Can be used standalone for fast exploration
+1. **Validation**: Ensures data has sufficient records for both SMA periods
+2. **Combination Enumeration**: Tests all (short, long) pairs where short < long
+3. **Backtest Execution**: Runs full backtests for each parameter combination
+4. **Metric Calculation**: Computes Sharpe ratio, max drawdown, final value
+5. **Result Selection**: Returns parameters with highest Sharpe ratio AND highest returns
+6. **Progress Tracking**: Shows real-time progress with ETA (Python) or runs in parallel (C++)
 
-**Pass 2 - Fine-Grained Refinement** (exhaustive):
-- Tests refined region around Pass 1 best result
-- Short window: ±10 days from best
-- Long window: ±20 days from best
-- Exhaustive search (~860 combinations)
-- Completes in ~15 minutes
-- Guarantees optimality in refined region
+A typical 75×185 grid (13,875 parameter sets) tests all combinations exhaustively.
 
-**Total time**: ~45 minutes for high-confidence result vs 4+ hours exhaustive search.
+### C++ Multithreaded Optimizer
 
-Both passes can be controlled independently:
-```python
-run_grid_search(data, fast_range, slow_range, backtest_func, early_stopping=True)   # Pass 1 only
-run_grid_search(data, fast_range, slow_range, backtest_func, early_stopping=False)  # Exhaustive
+For production use, the system automatically uses a compiled C++ optimizer when available:
+
+**Building the C++ Optimizer**:
+```bash
+bash cpp/build.sh
 ```
+
+**Benefits**:
+- 10-50x faster than pure Python
+- Automatic multithreading across all CPU cores
+- Seamless fallback to Python if C++ not available
+- Same results as Python implementation
+
+**Technical Details**:
+- Compiled to native shared library (`.dylib` on macOS, `.so` on Linux)
+- Called via ctypes from Python without external dependencies
+- Thread-safe result aggregation with mutex protection
+- Optimized cache locality for SMA calculations
 
 ## Dependencies
 
@@ -226,7 +250,7 @@ Python 3.9+ required.
 
 ## Contributing
 
-Contributions welcome! Areas for improvement:
+Contributions welcome! Areas for future improvement:
 
 - Additional technical indicators (EMA, RSI, MACD)
 - Visualization of optimization results (heatmap in `plot_heatmap()`)
@@ -235,6 +259,8 @@ Contributions welcome! Areas for improvement:
 - Performance visualization (matplotlib/plotly)
 - Execution simulation with slippage/spread
 - Paper trading interface
+- Risk management features (stop-loss, position sizing)
+- Machine learning parameter optimization
 
 ## License
 
