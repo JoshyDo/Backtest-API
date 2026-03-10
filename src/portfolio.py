@@ -1,3 +1,4 @@
+import random
 """
 Manages the virtual portfolio (cash, positions, transaction costs).
 """
@@ -11,11 +12,16 @@ class Portfolio:
     Every buy/sell is charged a percentage commission.
     """
 
-    def __init__(self, initial_cash: float = 10_000.0, commission: float = 0.001) -> None:
+    def __init__(self, initial_cash: float = 10_000.0, commission: float = 0.001, 
+                 slippage: float = 0.002, spread_min: float = 0.001, 
+                 spread_max: float = 0.003) -> None:
         self.initial_cash = initial_cash
         self.cash = initial_cash
         self.shares: float = 0.0
         self.commission = commission
+        self.slippage = slippage
+        self.spread_min = spread_min
+        self.spread_max = spread_max
         self.transactions: list[dict] = []
 
     def buy(self, date: str, price: float, quantity: float) -> None:
@@ -29,7 +35,9 @@ class Portfolio:
         if quantity <= 0:
             raise ValueError(f"quantity must be > 0, got {quantity}")
 
-        total_cost = quantity * price * (1 + self.commission)
+        spread = random.uniform(self.spread_min, self.spread_max)
+        price_with_all_costs = price * (1 + spread) * (1 + self.slippage) * (1 + self.commission)
+        total_cost = quantity * price_with_all_costs
 
         if self.cash < total_cost:
             raise RuntimeError(
@@ -61,8 +69,10 @@ class Portfolio:
             raise RuntimeError(
                 f"Insufficient shares: {self.shares} held, but {quantity} requested."
             )
+        spread = random.uniform(self.spread_min, self.spread_max)
+        price_with_all_costs = price * (1 - spread) * (1 - self.slippage) * (1 - self.commission)
+        net_proceeds = quantity * price_with_all_costs
 
-        net_proceeds = quantity * price * (1 - self.commission)
         self.cash += net_proceeds
         self.shares -= quantity
         self.transactions.append({

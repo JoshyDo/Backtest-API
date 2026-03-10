@@ -29,13 +29,16 @@ from src.cpp_optimizer import is_cpp_available
 # ============================================================================
 
 # Data & Backtest Parameters
-TICKER = "NVDA"                      # Stock ticker symbol (e.g., "AAPL", "^GSPC", "BAS.DE")
+TICKER = "DAX"                      # Stock ticker symbol (e.g., "AAPL", "^GSPC", "BAS.DE")
 START_DATE = "2000-01-01"           # Backtest start date (YYYY-MM-DD, inclusive)
 END_DATE = "2027-01-01"             # Backtest end date (YYYY-MM-DD, exclusive)
 CSV_PATH = f"data/{TICKER}.csv"     # Path to cache downloaded data
 
 INITIAL_CASH = 10_000.0             # Starting capital (USD)
 COMMISSION = 0.001                  # Transaction fee as decimal (0.1% = 0.001)
+SLIPPAGE = 0.002
+SPREAD_MIN = 0.001
+SPREAD_MAX = 0.002
 SHORT_WINDOW = 20                   # Fast SMA period (days)
 LONG_WINDOW = 50                    # Slow SMA period (days)
 
@@ -66,6 +69,9 @@ def run_backtest(
     csv_path: str = CSV_PATH,
     initial_cash: float = INITIAL_CASH,
     commission: float = COMMISSION,
+    slippage: float = SLIPPAGE,
+    spread_min = SPREAD_MIN,
+    spread_max = SPREAD_MAX,
     short_window: int = SHORT_WINDOW,
     long_window: int = LONG_WINDOW,
     print_results: bool = True,
@@ -117,17 +123,15 @@ def run_backtest(
     )
 
     # 3. Run backtest
-    portfolio = Portfolio(initial_cash=initial_cash, commission=commission)
+    portfolio = Portfolio(initial_cash=initial_cash, commission=commission, slippage=slippage, 
+                          spread_min=spread_min, spread_max=spread_max)
     portfolio_values: list[float] = []
 
     for signal in signals:
         if signal["Signal"] == "BUY":
-            quantity = int(portfolio.cash // (signal["Close"] * (1 + portfolio.commission)))
+            # Multiplikativ: (1 + spread) * (1 + slippage) * (1 + commission)
+            quantity = int(portfolio.cash // (signal["Close"] * (1 + spread_max) * (1 + slippage) * (1 + commission)))
             if quantity > 0:
-                log.debug(
-                    "BUY  %s | Price: %.2f | Shares: %d",
-                    signal["Date"], signal["Close"], quantity,
-                )
                 portfolio.buy(signal["Date"], signal["Close"], quantity)
 
         elif signal["Signal"] == "SELL" and portfolio.shares > 0:
