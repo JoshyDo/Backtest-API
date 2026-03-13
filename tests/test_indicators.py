@@ -10,6 +10,7 @@ from src.indicators import calculate_sma
 
 # Fixtures
 
+
 @pytest.fixture
 def prices_10() -> list[float]:
     """Ten evenly spaced prices for easy hand-calculation."""
@@ -23,6 +24,7 @@ def constant_prices() -> list[float]:
 
 
 # Tests for calculate_sma
+
 
 class TestCalculateSma:
 

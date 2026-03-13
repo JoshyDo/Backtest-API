@@ -10,13 +10,24 @@ from src.metrics import calculate_max_drawdown, calculate_sharpe_ratio
 
 # Fixtures
 
+
 @pytest.fixture
 def rising_values() -> list[float]:
     """
     Returns a monotonically increasing portfolio value series.
     Used to test the no-drawdown case and a positive Sharpe Ratio.
     """
-    rising_list = [10.0, 1000.0, 1001.0, 2200.0, 3243.0, 3245.0, 9999.0, 10000.1, 100003.66]
+    rising_list = [
+        10.0,
+        1000.0,
+        1001.0,
+        2200.0,
+        3243.0,
+        3245.0,
+        9999.0,
+        10000.1,
+        100003.66,
+    ]
     return rising_list
 
 
@@ -54,6 +65,7 @@ def flat_values() -> list[float]:
 
 
 # Tests for calculate_max_drawdown
+
 
 class TestCalculateMaxDrawdown:
 
@@ -106,6 +118,7 @@ class TestCalculateMaxDrawdown:
 
 # Tests for calculate_sharpe_ratio
 
+
 class TestCalculateSharpeRatio:
 
     def test_returns_zero_when_std_is_zero(self, flat_values):
@@ -145,7 +158,7 @@ class TestCalculateSharpeRatio:
         Sharpe Ratio compared to risk_free_rate=0.0, because a higher
         hurdle rate reduces the excess return.
         """
-        sharpe_no_rfr   = calculate_sharpe_ratio(rising_values, risk_free_rate=0)
+        sharpe_no_rfr = calculate_sharpe_ratio(rising_values, risk_free_rate=0)
         sharpe_high_rfr = calculate_sharpe_ratio(rising_values, risk_free_rate=10)
         assert sharpe_no_rfr > sharpe_high_rfr
 

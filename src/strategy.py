@@ -60,6 +60,8 @@ class SMAStrategy:
             else:
                 signal = "HOLD"
 
-            result.append({"Date": day["Date"], "Close": day["Close"], "Signal": signal})
+            result.append(
+                {"Date": day["Date"], "Close": day["Close"], "Signal": signal}
+            )
 
         return result

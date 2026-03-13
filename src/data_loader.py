@@ -8,7 +8,9 @@ import os
 import yfinance as yf
 
 
-def download_historical_data(ticker: str, start: str, end: str, output_path: str) -> str:
+def download_historical_data(
+    ticker: str, start: str, end: str, output_path: str
+) -> str:
     """
     Downloads historical daily prices via yfinance and saves them as CSV.
 

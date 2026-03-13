@@ -77,7 +77,7 @@ class TestDownloadHistoricalData:
                     ticker="AAPL",
                     start="2025-01-01",
                     end="2025-01-31",
-                    output_path=output_path
+                    output_path=output_path,
                 )
                 assert os.path.exists(result_path)
                 assert result_path.endswith(".csv")
@@ -94,7 +94,7 @@ class TestDownloadHistoricalData:
                     ticker="AAPL",
                     start="2025-01-01",
                     end="2025-01-31",
-                    output_path=output_path
+                    output_path=output_path,
                 )
                 assert os.path.isabs(result_path)
             except ValueError:
@@ -109,7 +109,7 @@ class TestDownloadHistoricalData:
                     ticker="AAPL",
                     start="2025-01-01",
                     end="2025-01-31",
-                    output_path=output_path
+                    output_path=output_path,
                 )
                 records = load_csv_data(result_path)
                 assert len(records) > 0
@@ -127,7 +127,7 @@ class TestDownloadHistoricalData:
                     ticker="INVALID_TICKER_XYZ123",
                     start="2025-01-01",
                     end="2025-01-31",
-                    output_path=output_path
+                    output_path=output_path,
                 )
 
     def test_download_creates_directory_if_not_exists(self):
@@ -139,7 +139,7 @@ class TestDownloadHistoricalData:
                     ticker="AAPL",
                     start="2025-01-01",
                     end="2025-01-31",
-                    output_path=nested_path
+                    output_path=nested_path,
                 )
                 assert os.path.exists(result_path)
                 assert os.path.dirname(result_path).endswith("dir")

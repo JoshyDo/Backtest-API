@@ -12,12 +12,14 @@ from src.strategy import SMAStrategy
 
 # Helpers
 
+
 def _make_records(prices: list[float]) -> list[dict]:
     """Convert a plain list of prices into the OHLCV-dict format expected by generate_signals."""
     return [{"Date": f"2024-01-{i+1:02d}", "Close": p} for i, p in enumerate(prices)]
 
 
 # Tests for SMAStrategy.__init__
+
 
 class TestSMAStrategyInit:
 
@@ -47,6 +49,7 @@ class TestSMAStrategyInit:
 
 
 # Tests for SMAStrategy.generate_signals
+
 
 class TestGenerateSignals:
 
@@ -116,7 +119,7 @@ class TestGenerateSignals:
         """
         # Phase 1: slow rising ramp so short SMA > long SMA
         # Phase 2: sudden sustained crash so short SMA crosses below long SMA
-        rising = [100.0 + i * 0.5 for i in range(50)]   # 100 -> 124.5
+        rising = [100.0 + i * 0.5 for i in range(50)]  # 100 -> 124.5
         crash = [1.0] * 10
         records = _make_records(rising + crash)
         s = SMAStrategy(short_window=5, long_window=20)

@@ -30,7 +30,7 @@ class TestCppOptimizerAvailability:
             "final_value": 12500.0,
             "max_drawdown": -0.15,
         }
-        
+
         # Verify structure
         assert result["short_window"] == 10
         assert result["long_window"] == 30
@@ -46,10 +46,10 @@ class TestGridSearchMultithreadedCpp:
         """Assert that C++ grid search returns valid results when available."""
         if not is_cpp_available():
             pytest.skip("C++ optimizer not available")
-        
+
         # Create sample price data
         prices = [100.0 + i * 0.1 for i in range(300)]
-        
+
         # Call C++ grid search
         result = grid_search_multithreaded_cpp(
             prices=prices,
@@ -61,7 +61,7 @@ class TestGridSearchMultithreadedCpp:
             commission=0.001,
             num_threads=-1,
         )
-        
+
         # Verify result is OptimizationResult
         assert isinstance(result, dict)
         assert "short_window" in result
@@ -69,7 +69,7 @@ class TestGridSearchMultithreadedCpp:
         assert "sharpe_ratio" in result
         assert "final_value" in result
         assert "max_drawdown" in result
-        
+
         # Verify result values
         assert isinstance(result["short_window"], int)
         assert isinstance(result["long_window"], int)
@@ -81,9 +81,9 @@ class TestGridSearchMultithreadedCpp:
         """Assert that C++ grid search respects parameter constraints."""
         if not is_cpp_available():
             pytest.skip("C++ optimizer not available")
-        
+
         prices = [100.0 + i * 0.1 for i in range(300)]
-        
+
         result = grid_search_multithreaded_cpp(
             prices=prices,
             fast_min=5,
@@ -91,10 +91,10 @@ class TestGridSearchMultithreadedCpp:
             slow_min=20,
             slow_max=50,
         )
-        
+
         # Short window should be less than long window
         assert result["short_window"] < result["long_window"]
-        
+
         # Parameters should be within ranges
         assert result["short_window"] >= 5
         assert result["short_window"] < 20
@@ -105,10 +105,10 @@ class TestGridSearchMultithreadedCpp:
         """Assert that C++ grid search works with minimum required price data."""
         if not is_cpp_available():
             pytest.skip("C++ optimizer not available")
-        
+
         # Minimum: need at least as many prices as the max slow window
         prices = [100.0 + i * 0.1 for i in range(100)]
-        
+
         result = grid_search_multithreaded_cpp(
             prices=prices,
             fast_min=5,
@@ -116,7 +116,7 @@ class TestGridSearchMultithreadedCpp:
             slow_min=20,
             slow_max=50,
         )
-        
+
         assert result is not None
         assert "short_window" in result
 
@@ -124,7 +124,7 @@ class TestGridSearchMultithreadedCpp:
         """Assert that C++ grid search raises error for invalid price data."""
         if not is_cpp_available():
             pytest.skip("C++ optimizer not available")
-        
+
         # Empty prices should raise ValueError
         with pytest.raises(ValueError):
             grid_search_multithreaded_cpp(
@@ -139,7 +139,7 @@ class TestGridSearchMultithreadedCpp:
         """Assert that C++ grid search raises error for insufficient price data."""
         if not is_cpp_available():
             pytest.skip("C++ optimizer not available")
-        
+
         # Only 1 price - need at least 2
         with pytest.raises(ValueError):
             grid_search_multithreaded_cpp(
@@ -154,9 +154,9 @@ class TestGridSearchMultithreadedCpp:
         """Assert that C++ grid search raises error for invalid fast window range."""
         if not is_cpp_available():
             pytest.skip("C++ optimizer not available")
-        
+
         prices = [100.0 + i * 0.1 for i in range(300)]
-        
+
         # fast_min >= fast_max should raise ValueError
         with pytest.raises(ValueError):
             grid_search_multithreaded_cpp(
@@ -171,9 +171,9 @@ class TestGridSearchMultithreadedCpp:
         """Assert that C++ grid search raises error for invalid slow window range."""
         if not is_cpp_available():
             pytest.skip("C++ optimizer not available")
-        
+
         prices = [100.0 + i * 0.1 for i in range(300)]
-        
+
         # slow_min >= slow_max should raise ValueError
         with pytest.raises(ValueError):
             grid_search_multithreaded_cpp(
@@ -188,9 +188,9 @@ class TestGridSearchMultithreadedCpp:
         """Assert that C++ grid search respects custom initial_cash and commission."""
         if not is_cpp_available():
             pytest.skip("C++ optimizer not available")
-        
+
         prices = [100.0 + i * 0.1 for i in range(300)]
-        
+
         result = grid_search_multithreaded_cpp(
             prices=prices,
             fast_min=5,
@@ -201,7 +201,7 @@ class TestGridSearchMultithreadedCpp:
             commission=0.002,  # Custom commission
             num_threads=4,  # Custom thread count
         )
-        
+
         assert result is not None
         assert isinstance(result["final_value"], float)
         # Final value should be different with different initial capital
@@ -211,9 +211,9 @@ class TestGridSearchMultithreadedCpp:
         """Assert that C++ grid search produces consistent results with same data."""
         if not is_cpp_available():
             pytest.skip("C++ optimizer not available")
-        
+
         prices = [100.0 + i * 0.1 for i in range(300)]
-        
+
         # Run grid search twice with same parameters
         result1 = grid_search_multithreaded_cpp(
             prices=prices,
@@ -222,7 +222,7 @@ class TestGridSearchMultithreadedCpp:
             slow_min=20,
             slow_max=50,
         )
-        
+
         result2 = grid_search_multithreaded_cpp(
             prices=prices,
             fast_min=5,
@@ -230,7 +230,7 @@ class TestGridSearchMultithreadedCpp:
             slow_min=20,
             slow_max=50,
         )
-        
+
         # Results should be identical
         assert result1["short_window"] == result2["short_window"]
         assert result1["long_window"] == result2["long_window"]
@@ -246,10 +246,10 @@ class TestCppOptimizerErrorHandling:
         """Assert that grid search handles errors from C++ library gracefully."""
         if not is_cpp_available():
             pytest.skip("C++ optimizer not available")
-        
+
         # Test with prices that should be valid
         prices = [100.0 + i * 0.1 for i in range(500)]
-        
+
         # This should succeed even with edge case parameters
         result = grid_search_multithreaded_cpp(
             prices=prices,
@@ -258,7 +258,7 @@ class TestCppOptimizerErrorHandling:
             slow_min=10,
             slow_max=11,  # Minimal range
         )
-        
+
         assert result is not None
         assert result["short_window"] == 1
         assert result["long_window"] >= 10
@@ -267,10 +267,10 @@ class TestCppOptimizerErrorHandling:
         """Assert that C++ grid search handles constant price data."""
         if not is_cpp_available():
             pytest.skip("C++ optimizer not available")
-        
+
         # All prices are the same - no variation
         prices = [100.0] * 300
-        
+
         result = grid_search_multithreaded_cpp(
             prices=prices,
             fast_min=5,
@@ -278,7 +278,7 @@ class TestCppOptimizerErrorHandling:
             slow_min=20,
             slow_max=50,
         )
-        
+
         # Should still return a valid result
         assert result is not None
         assert isinstance(result["sharpe_ratio"], float)
@@ -287,10 +287,10 @@ class TestCppOptimizerErrorHandling:
         """Assert that C++ grid search handles volatile price data."""
         if not is_cpp_available():
             pytest.skip("C++ optimizer not available")
-        
+
         # Create highly volatile prices
         prices = [100.0 * (1.02 if i % 2 == 0 else 0.98) for i in range(300)]
-        
+
         result = grid_search_multithreaded_cpp(
             prices=prices,
             fast_min=5,
@@ -298,7 +298,7 @@ class TestCppOptimizerErrorHandling:
             slow_min=20,
             slow_max=50,
         )
-        
+
         assert result is not None
         assert isinstance(result["sharpe_ratio"], float)
 
@@ -306,10 +306,10 @@ class TestCppOptimizerErrorHandling:
         """Assert that C++ grid search handles trending price data."""
         if not is_cpp_available():
             pytest.skip("C++ optimizer not available")
-        
+
         # Create steadily increasing prices (strong uptrend)
         prices = [100.0 + i * 1.0 for i in range(300)]
-        
+
         result = grid_search_multithreaded_cpp(
             prices=prices,
             fast_min=5,
@@ -317,7 +317,7 @@ class TestCppOptimizerErrorHandling:
             slow_min=20,
             slow_max=50,
         )
-        
+
         # Uptrend should produce valid results
         assert result is not None
         assert isinstance(result["sharpe_ratio"], float)
@@ -327,10 +327,10 @@ class TestCppOptimizerErrorHandling:
         """Assert that C++ grid search handles downtrending price data."""
         if not is_cpp_available():
             pytest.skip("C++ optimizer not available")
-        
+
         # Create steadily decreasing prices (strong downtrend)
         prices = [300.0 - i * 1.0 for i in range(300)]
-        
+
         result = grid_search_multithreaded_cpp(
             prices=prices,
             fast_min=5,
@@ -338,7 +338,7 @@ class TestCppOptimizerErrorHandling:
             slow_min=20,
             slow_max=50,
         )
-        
+
         # Downtrend should be handled
         assert result is not None
         assert isinstance(result["final_value"], float)
@@ -350,12 +350,12 @@ class TestOptimizerImportFallback:
     def test_optimizer_cpp_availability_detection(self):
         """Assert that optimizer correctly detects C++ availability."""
         from src import optimizer
-        
+
         # CPP_AVAILABLE should be set based on is_cpp_available()
         # If C++ is available, CPP_AVAILABLE should be True
         # This tests the try-except block in optimizer.py
         assert isinstance(optimizer.CPP_AVAILABLE, bool)
-        
+
         # If available, should match is_cpp_available()
         if is_cpp_available():
             assert optimizer.CPP_AVAILABLE is True

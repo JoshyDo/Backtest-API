@@ -69,7 +69,8 @@ def calculate_sharpe_ratio(
 
     daily_rate = risk_free_rate / periods_per_year
     excess_returns = [
-        (portfolio_values[i] - portfolio_values[i - 1]) / portfolio_values[i - 1] - daily_rate
+        (portfolio_values[i] - portfolio_values[i - 1]) / portfolio_values[i - 1]
+        - daily_rate
         for i in range(1, len(portfolio_values))
     ]
 
