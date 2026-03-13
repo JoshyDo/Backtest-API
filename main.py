@@ -48,14 +48,12 @@ LONG_WINDOW = 50  # Slow SMA period (days)
 # Otherwise, runs single backtest with SHORT_WINDOW & LONG_WINDOW above
 GRID_SEARCH_ENABLED = True
 
-# Parameter ranges for grid search (MUCH more conservative)
-GRID_SEARCH_FAST_MIN = 15  # ← Höher
-GRID_SEARCH_FAST_MAX = 35  # ← Viel niedriger
-GRID_SEARCH_SLOW_MIN = 40  # ← Höher
-GRID_SEARCH_SLOW_MAX = 100  # ← Viel niedriger
-
-# Das sind nur 20 × 60 = 1200 Kombinationen
-# Viel bessere Generalisierung!
+# Parameter ranges for grid search (conservative range for better generalization)
+GRID_SEARCH_FAST_MIN = 15  # Short SMA minimum
+GRID_SEARCH_FAST_MAX = 35  # Short SMA maximum
+GRID_SEARCH_SLOW_MIN = 40  # Long SMA minimum
+GRID_SEARCH_SLOW_MAX = 100  # Long SMA maximum
+# Total combinations: ~1200 (20 × 60)
 
 # Walk-Forward Analysis Parameters
 # Set WALK_FORWARD_ENABLED = True to use WFA for out-of-sample validation
@@ -63,10 +61,10 @@ GRID_SEARCH_SLOW_MAX = 100  # ← Viel niedriger
 WALK_FORWARD_ENABLED = True
 
 # Walk-Forward window configuration (trading days)
-WFA_IS_WINDOW_DAYS = 504  # ← Erhöhe auf 2 Jahre
-WFA_OOS_WINDOW_DAYS = 252  # ← Erhöhe auf 1 Jahr
-WFA_STEP_SIZE_DAYS = 252  # ← Verschiebe um 1 Jahr
-WFA_WARMUP_DAYS = 406  # ← Erhöhe
+WFA_IS_WINDOW_DAYS = 504  # In-sample period (~2 trading years)
+WFA_OOS_WINDOW_DAYS = 252  # Out-of-sample period (~1 trading year)
+WFA_STEP_SIZE_DAYS = 252  # Roll forward by (~1 trading year)
+WFA_WARMUP_DAYS = 406  # Indicator warmup period
 
 # ============================================================================
 # END CONFIGURATION
@@ -217,8 +215,8 @@ def run_backtest(
 
 def wfa_grid_search_wrapper(is_data: list[dict]) -> dict:
     """
-    Wrapper für Grid Search in Walk-Forward Analysis.
-    Nutzt die globalen Grid-Search-Parameter.
+    Wrapper for grid search in Walk-Forward Analysis.
+    Uses global grid search parameters to find optimal SMA on IS window.
     """
     results = run_grid_search(
         data=is_data,
@@ -227,7 +225,7 @@ def wfa_grid_search_wrapper(is_data: list[dict]) -> dict:
         backtest_func=run_backtest,
     )
 
-    # Extrahiere beste Parameter (beste Sharpe Ratio)
+    # Extract best parameters (best Sharpe Ratio)
     best_result = results["best_sharpe"]
 
     return {
@@ -241,8 +239,8 @@ def wfa_backtest_wrapper(
     oos_data: list[dict], short_window: int, long_window: int
 ) -> list[float]:
     """
-    Wrapper für Backtest in Walk-Forward Analysis.
-    Gibt Portfolio-Werte zurück für OOS-Validierung.
+    Wrapper for backtest in Walk-Forward Analysis.
+    Returns portfolio values for OOS validation.
     """
     portfolio_values = run_backtest(
         data=oos_data,
@@ -348,5 +346,4 @@ if __name__ == "__main__":
 
         print_wfa_summary(wfa_results, initial_capital=INITIAL_CASH)
 
-# TODO: - Dokumentieren in ReadMe
-# TODO: - Löschen von .md docs und eine gute md generieren (txt)
+# TODO: Document Walk-Forward Analysis in README

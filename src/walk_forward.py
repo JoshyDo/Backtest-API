@@ -589,6 +589,8 @@ class WalkForwardAnalyzer:
             "final_value": aggregated_equity[-1],
             "num_windows": len(windows),
             "inner_cv_enabled": use_inner_cv,
+            "oos_window_days": self.oos_window_days,
+            "data": self.data,
         }
 
 
@@ -704,6 +706,8 @@ def print_wfa_summary(
     final_value = results.get("final_value", 0)
     final_sharpe_oos = results.get("final_sharpe_oos", 0)
     inner_cv_enabled = results.get("inner_cv_enabled", False)
+    oos_window_days = results.get("oos_window_days", 252)
+    data = results.get("data", [])
 
     # Header
     print("\n" + "=" * 130)
@@ -772,9 +776,29 @@ def print_wfa_summary(
         (final_value - initial_capital) / initial_capital if initial_capital > 0 else 0
     )
     avg_drift = total_drift / len(iterations) if iterations else 0
+    
+    # Calculate annualized return (assuming ~252 trading days per year)
+    num_years = len(iterations) * (oos_window_days / 252) if iterations else 1
+    annualized_return = ((final_value / initial_capital) ** (1 / max(num_years, 1))) - 1
+
+    # Calculate Buy & Hold return (from first to last price in data)
+    buyhold_return = 0.0
+    if data and len(data) >= 2:
+        first_price = data[0].get("Close", 0)
+        last_price = data[-1].get("Close", 0)
+        if first_price > 0:
+            buyhold_return = (last_price - first_price) / first_price
+            buyhold_annualized = ((last_price / first_price) ** (1 / num_years)) - 1
+        else:
+            buyhold_annualized = 0.0
+    else:
+        buyhold_annualized = 0.0
 
     print(f"{'Final Portfolio Value:':<40} ${final_value:,.2f}")
-    print(f"{'Total Return:':<40} {total_return * 100:,.2f}%")
+    print(f"{'Total Return (WFA):':<40} {total_return * 100:,.2f}%")
+    print(f"{'Total Return (Buy & Hold):':<40} {buyhold_return * 100:,.2f}%")
+    print(f"{'Return per Year (WFA):':<40} {annualized_return * 100:,.2f}%")
+    print(f"{'Return per Year (Buy & Hold):':<40} {buyhold_annualized * 100:,.2f}%")
     print(f"{'Final OOS Sharpe Ratio:':<40} {final_sharpe_oos:.4f}")
     print(f"{'Average IS-OOS Drift:':<40} {avg_drift:.4f}")
     print(f"{'Number of Iterations:':<40} {len(iterations)}")
