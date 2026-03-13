@@ -45,45 +45,55 @@ By default, this will:
 
 ## Configuration
 
-Edit the configuration block at the top of `main.py` to customize behavior:
+All configuration is in `main.py`. Edit the top-level variables to customize:
 
 ```python
-# ============ DATA & BACKTEST ============
-TICKER = "DAX"
-START_DATE = "2000-01-01"
-END_DATE = "2027-01-01"
-INITIAL_CASH = 10_000.0
-COMMISSION = 0.001      # 0.1% per trade
-SLIPPAGE = 0.002        # 0.2% market impact
-SPREAD_MIN = 0.001      # 0.1% bid-ask min
-SPREAD_MAX = 0.002      # 0.2% bid-ask max
+# ═══════════════════════════════════════════════════════════════════════
+# DATA & BACKTEST
+# ═══════════════════════════════════════════════════════════════════════
+TICKER = "DAX"                  # Ticker symbol
+START_DATE = "2000-01-01"       # Backtest start date
+END_DATE = "2027-01-01"         # Backtest end date
+INITIAL_CASH = 10_000.0         # Starting capital
 
-# ============ BASE SMA PARAMETERS ============
-SHORT_WINDOW = 20
-LONG_WINDOW = 50
+# Transaction costs
+COMMISSION = 0.001              # 0.1% per trade
+SLIPPAGE = 0.002                # 0.2% market impact
+SPREAD_MIN = 0.001              # 0.1% bid-ask minimum
+SPREAD_MAX = 0.002              # 0.2% bid-ask maximum
 
-# ============ GRID SEARCH ============
-GRID_SEARCH_ENABLED = True
-GRID_SEARCH_FAST_MIN = 15    # short SMA min
-GRID_SEARCH_FAST_MAX = 35    # short SMA max
-GRID_SEARCH_SLOW_MIN = 40    # long SMA min
-GRID_SEARCH_SLOW_MAX = 100   # long SMA max
+# ═══════════════════════════════════════════════════════════════════════
+# SMA PARAMETERS (for single backtest mode)
+# ═══════════════════════════════════════════════════════════════════════
+SHORT_WINDOW = 20               # Fast-moving average
+LONG_WINDOW = 50                # Slow-moving average
 
-# ============ WALK-FORWARD ANALYSIS ============
-WALK_FORWARD_ENABLED = True
-WFA_IS_WINDOW_DAYS = 504    # ~2 trading years
-WFA_OOS_WINDOW_DAYS = 252   # ~1 trading year
-WFA_STEP_SIZE_DAYS = 252    # roll forward 1 year
-WFA_WARMUP_DAYS = 406       # indicator warmup
+# ═══════════════════════════════════════════════════════════════════════
+# GRID SEARCH (parameter optimization)
+# ═══════════════════════════════════════════════════════════════════════
+GRID_SEARCH_ENABLED = True      # Enable grid search?
+GRID_SEARCH_FAST_MIN = 15       # Short SMA: min
+GRID_SEARCH_FAST_MAX = 35       # Short SMA: max
+GRID_SEARCH_SLOW_MIN = 40       # Long SMA: min
+GRID_SEARCH_SLOW_MAX = 100      # Long SMA: max
+
+# ═══════════════════════════════════════════════════════════════════════
+# WALK-FORWARD ANALYSIS (rolling windows + inner CV)
+# ═══════════════════════════════════════════════════════════════════════
+WALK_FORWARD_ENABLED = True     # Enable WFA?
+WFA_IS_WINDOW_DAYS = 504        # In-sample period (~2 trading years)
+WFA_OOS_WINDOW_DAYS = 252       # Out-of-sample period (~1 trading year)
+WFA_STEP_SIZE_DAYS = 252        # Roll forward by (1 trading year)
+WFA_WARMUP_DAYS = 406           # Warmup buffer (prevent indicator leakage)
 ```
 
 ### Execution Modes
 
-| Config | Behavior |
-|--------|----------|
-| `GRID_SEARCH_ENABLED=False` | Single backtest with `SHORT_WINDOW`/`LONG_WINDOW` |
-| `GRID_SEARCH_ENABLED=True`, `WALK_FORWARD_ENABLED=False` | Grid search → find best params on full period |
-| Both `True` | Grid search + WFA with inner CV on each window |
+| Setting | Behavior |
+|---------|----------|
+| `GRID_SEARCH_ENABLED=False` | Single backtest with fixed `SHORT_WINDOW` / `LONG_WINDOW` |
+| `GRID_SEARCH_ENABLED=True` only | Grid search on full period to find best parameters |
+| Both enabled | Grid search + WFA with inner CV on rolling windows |
 
 ## Walk-Forward Analysis & Inner Cross-Validation
 
@@ -134,30 +144,6 @@ results = analyzer.run(
 print_wfa_summary(results, initial_capital=10_000.0)
 ```
 
-### Key Innovations
-
-1. **Penalty-Based Adjusted Sharpe**  
-   Handles negative Sharpe ratios correctly:
-   ```
-   adjusted = validate_sharpe - 0.5 * |train_sharpe - validate_sharpe|
-   ```
-
-2. **Percentile-Based Selection**  
-   Works in all market regimes (bull, bear, flat):
-   ```
-   robust_count = max(1, int(len(candidates) * 0.25))
-   ```
-
-3. **Relative Distance Metric**  
-   Penalizes small-number changes more than large:
-   ```
-   distance = sqrt(((short_new - short_old) / short_old)² + ...)
-   ```
-
-For deep dives, see:
-- `LAYER2_INNER_CV_GUIDE.md` – Detailed math and design rationale
-- `BUG_FIXES_VISUAL_COMPARISON.md` – Comparison with naive approaches
-
 ## Quick Reference
 
 ### Common Commands
@@ -186,7 +172,9 @@ python -c "from src.data_loader import download_historical_data; download_histor
 | `Portfolio` | `portfolio.py` | Tracks cash, shares, transactions |
 | `SMAStrategy` | `strategy.py` | Generates buy/sell/hold signals |
 | `WalkForwardAnalyzer` | `walk_forward.py` | Manages rolling windows + inner CV |
-| `WalkForwardResult` | `walk_forward.py` | Stores per-window metrics |
+| `WalkForwardWindow` | `walk_forward.py` | Single WFA iteration window (IS/OOS split) |
+| `WalkForwardResult` | `walk_forward.py` | Stores per-window metrics (Sharpe, params, equity) |
+| `InnerCVResult` | `walk_forward.py` | Inner CV result for parameter combination |
 
 ### Key Functions
 
@@ -194,9 +182,15 @@ python -c "from src.data_loader import download_historical_data; download_histor
 |----------|--------|---------|
 | `run_grid_search` | `optimizer.py` | Parameter optimization (Python/C++) |
 | `run_backtest` | `strategy.py` | Executes strategy on data |
+| `calculate_sma` | `indicators.py` | Simple moving average calculation |
 | `calculate_sharpe_ratio` | `metrics.py` | Risk-adjusted return metric |
+| `calculate_max_drawdown` | `metrics.py` | Maximum peak-to-trough decline |
 | `calculate_adjusted_sharpe` | `walk_forward.py` | Penalty-based generalization metric |
-| `print_wfa_summary` | `walk_forward.py` | Formatted results table |
+| `calculate_relative_parameter_distance` | `walk_forward.py` | Relative parameter stability metric |
+| `run_inner_cross_validation` | `walk_forward.py` | Layer 2 robust parameter selection |
+| `split_is_data` | `walk_forward.py` | Split in-sample into train/validate |
+| `aggregate_oos_equity` | `walk_forward.py` | Combine OOS results across windows |
+| `print_wfa_summary` | `walk_forward.py` | Formatted WFA results table |
 
 ---
 
@@ -216,7 +210,7 @@ With coverage report:
 pytest --cov=src --cov-report=term-missing
 ```
 
-**Current Coverage:**
+**Current Coverage (164 tests passing):**
 
 ```
 src/__init__.py         100%  ✓
@@ -226,10 +220,10 @@ src/metrics.py          100%  ✓
 src/optimizer.py        100%  ✓
 src/portfolio.py        100%  ✓
 src/strategy.py         100%  ✓
-src/walk_forward.py      82%  (mostly log branches)
+src/walk_forward.py      82%  (log branches, extreme drift paths)
 src/cpp_optimizer.py     76%  (library binding fallbacks)
 ─────────────────────────────
-TOTAL                    89%
+TOTAL                    89%  (548 statements, 58 missed)
 ```
 
 **Test Suite:**  
@@ -304,6 +298,8 @@ This codebase is for **research and educational purposes only**. It is not a sub
 - Always test strategies on independent out-of-sample data
 - Never trade with real capital without understanding all risks
 - Use proper position sizing and risk management
+
+**Note:** This project was developed with assistance from AI tools for architecture generation and testing, as this is a learning project. All functionality has been thoroughly reviewed and tested.
 
 ## License
 
